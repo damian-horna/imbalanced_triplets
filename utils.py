@@ -108,3 +108,57 @@ def calc_embeddings(model, device, loader):
             labels.append(target[0].cpu().numpy())
 
     return np.array(embeddings), np.array(labels)
+
+
+class TripletCleveland(Dataset):
+    def __init__(self, ds):
+        self.ds = ds
+        self.train = self.ds.train
+
+        if self.train:
+            self.train_labels = self.ds.train_labels
+            self.train_data = self.ds.train_data
+            self.labels_set = set(self.train_labels.numpy())
+            self.label_to_indices = {label: np.where(self.train_labels.numpy() == label)[0]
+                                     for label in self.labels_set}
+
+        else:
+            self.test_labels = self.ds.test_labels
+            self.test_data = self.ds.test_data
+            # generate fixed triplets for testing
+            self.labels_set = set(self.test_labels.numpy())
+            self.label_to_indices = {label: np.where(self.test_labels.numpy() == label)[0]
+                                     for label in self.labels_set}
+
+            random_state = np.random.RandomState(7)
+
+            triplets = []
+
+            for i in range(len(self.test_data)):
+                positive = random_state.choice(self.label_to_indices[self.test_labels[i].item()])
+                rand_other = np.random.choice(list(self.labels_set - {self.test_labels[i].item()}))
+                negative = random_state.choice(self.label_to_indices[rand_other])
+                t = [i, positive, negative]
+                triplets.append(t)
+
+            self.test_triplets = triplets
+
+    def __getitem__(self, index):
+        if self.train:
+            anchor, anchor_label = self.train_data[index], self.train_labels[index].item()
+            positive_index = index
+            while positive_index == index:
+                positive_index = np.random.choice(self.label_to_indices[anchor_label])
+            negative_label = np.random.choice(list(self.labels_set - {anchor_label}))
+            negative_index = np.random.choice(self.label_to_indices[negative_label])
+            positive = self.train_data[positive_index]
+            negative = self.train_data[negative_index]
+        else:
+            anchor = self.test_data[self.test_triplets[index][0]]
+            positive = self.test_data[self.test_triplets[index][1]]
+            negative = self.test_data[self.test_triplets[index][2]]
+
+        return (anchor, positive, negative), []
+
+    def __len__(self):
+        return len(self.ds)
