@@ -84,6 +84,19 @@ class TripletLoss(nn.Module):
         return losses.mean() if size_average else losses.sum()
 
 
+class TripletLossWeighted(nn.Module):
+    def __init__(self, margin, weights):
+        super(TripletLossWeighted, self).__init__()
+        self.margin = margin
+        self.weights = weights
+
+    def forward(self, anchor, positive, negative, size_average=True):
+        distance_positive = (anchor - positive).pow(2).sum(1)  # .pow(.5)
+        distance_negative = (anchor - negative).pow(2).sum(1)  # .pow(.5)
+        losses = F.relu(distance_positive - distance_negative + self.margin) * self.weights
+        return losses.mean() if size_average else losses.sum()
+
+
 def plot_embeddings(X_embedded, labels):
     embedded_df = pd.DataFrame.from_dict({
         "x": X_embedded[:, 0],
@@ -157,8 +170,9 @@ class TripletCleveland(Dataset):
             anchor = self.test_data[self.test_triplets[index][0]]
             positive = self.test_data[self.test_triplets[index][1]]
             negative = self.test_data[self.test_triplets[index][2]]
+            anchor_label = self.test_labels[index].item()
 
-        return (anchor, positive, negative), []
+        return (anchor, positive, negative), [anchor_label]
 
     def __len__(self):
         return len(self.ds)
