@@ -5,7 +5,8 @@ import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import TensorDataset, DataLoader
-
+import matplotlib.pyplot as plt
+import random
 from utils import TripletLossWeighted, TripletLoss, TripletCleveland, calc_embeddings
 
 
@@ -38,7 +39,11 @@ def config_calculation_strategy2(datasets):
         }
         config[dataset_name] = {
             "nn_config": neural_net_config,
-            "weighted_triplet_loss": True
+            "weighted_triplet_loss": True,
+            "lr": 1e-4,
+            "batch_size": 32,
+            "gamma": 0.95,
+            "epochs": 100
         }
     return config
 
@@ -48,6 +53,8 @@ def weights_calculation_strategy1(X_train, y_train):
     # weights = {c: (1/v) * 100 for c,v in cards.items()}
     weights = {c: 1/v for c, v in cards.items()}
     weights_normalized = {c: weights[c]/sum(weights.values()) for c in cards.keys()}
+    print(f"Class cardinalities: {cards}")
+    print(f"Weights: {weights_normalized}")
     return weights_normalized
 
 
@@ -55,9 +62,9 @@ class EmbeddingNet(nn.Module):
     def __init__(self, nn_config):
         super(EmbeddingNet, self).__init__()
         self.fc = nn.Sequential(nn.Linear(nn_config["units_1st_layer"], nn_config["units_2nd_layer"]),
-                                nn.PReLU(),
+                                nn.ReLU(),
                                 nn.Linear(nn_config["units_2nd_layer"], nn_config["units_3rd_layer"]),
-                                nn.PReLU(),
+                                nn.ReLU(),
                                 nn.Linear(nn_config["units_3rd_layer"], nn_config["units_latent_layer"])
                                 )
 
@@ -86,6 +93,7 @@ class TripletNet(nn.Module):
 
 def train_tripletnet(model, device, train_loader, optimizer, epoch, weights, nn_config, log_interval=10, dry_run=False):
     model.train()
+    train_loss = []
     for batch_idx, (data, target) in enumerate(train_loader):
         data[0] = torch.reshape(data[0], (data[0].shape[0], nn_config["units_1st_layer"]))
         data[1] = torch.reshape(data[1], (data[0].shape[0], nn_config["units_1st_layer"]))
@@ -108,15 +116,17 @@ def train_tripletnet(model, device, train_loader, optimizer, epoch, weights, nn_
         loss = loss_outputs[0] if type(loss_outputs) in (tuple, list) else loss_outputs
         loss.backward()
         optimizer.step()
-        if batch_idx % log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(train_loader.dataset),
-                       100. * batch_idx / len(train_loader), loss.item()))
+        # if batch_idx % log_interval == 0:
+        #     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+        #         epoch, batch_idx * len(data), len(train_loader.dataset),
+        #                100. * batch_idx / len(train_loader), loss.item()))
+        train_loss.append(loss.item())
+    return np.mean(train_loss)
 
 
 def test_tripletnet(model, device, test_loader, weights, nn_config):
     model.eval()
-    test_loss = 0
+    test_loss = []
     correct = 0
     with torch.no_grad():
         for data, target in test_loader:
@@ -139,20 +149,29 @@ def test_tripletnet(model, device, test_loader, weights, nn_config):
 
             loss_outputs = loss_fn(*loss_inputs)
             loss = loss_outputs[0] if type(loss_outputs) in (tuple, list) else loss_outputs
-            test_loss += loss.item()
-    print('\nTest set: Average loss: {:.4f}\n'.format(test_loss))
+            test_loss.append(loss.item())
+    # print('\nTest set: Average loss: {:.4f}\n'.format(test_loss))
+    return np.mean(test_loss)
 
 
-def train_triplets(X_train, y_train, X_test, y_test, weights, nn_config):
+def train_triplets(X_train, y_train, X_test, y_test, weights, cfg):
+    seed = 3
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
     seed = 7
-    batch_size = 32
-    test_batch_size = 32
+    batch_size = cfg["batch_size"]
+    test_batch_size = cfg["batch_size"]
     use_cuda = True
-    lr = 1e-3
-    gamma = 0.9
-    epochs = 45
+    lr = cfg["lr"]
+    gamma = cfg["gamma"]
+    epochs = cfg["epochs"]
     save_model = True
     log_interval = 20
+    nn_config = cfg["nn_config"]
 
     torch.manual_seed(seed)
 
@@ -163,7 +182,7 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, nn_config):
     if use_cuda:
         cuda_kwargs = {'num_workers': 1,
                        'pin_memory': True,
-                       'shuffle': True}
+                       'shuffle': False}
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
 
@@ -188,9 +207,11 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, nn_config):
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
+    test_losses = []
+    train_losses = []
     for epoch in range(1, epochs + 1):
-        train_tripletnet(model, device, triplet_train_loader, optimizer, epoch, weights, nn_config, log_interval)
-        test_tripletnet(model, device, triplet_test_loader, weights, nn_config)
+        train_losses.append(train_tripletnet(model, device, triplet_train_loader, optimizer, epoch, weights, nn_config, log_interval))
+        test_losses.append(test_tripletnet(model, device, triplet_test_loader, weights, nn_config))
         scheduler.step()
 
     if save_model:
@@ -201,5 +222,9 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, nn_config):
 
     embeddings_train, _ = calc_embeddings(model, device, train_loader)
     embeddings_test, _ = calc_embeddings(model, device, test_loader)
+    plt.plot(test_losses, label="test losses")
+    plt.plot(train_losses, label="train losses")
+    plt.legend()
+    plt.show()
 
     return embeddings_train, embeddings_test

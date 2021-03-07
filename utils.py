@@ -125,6 +125,7 @@ def calc_embeddings(model, device, loader):
 
 class TripletCleveland(Dataset):
     def __init__(self, ds):
+        np.random.seed(0)
         self.ds = ds
         self.train = self.ds.train
 
