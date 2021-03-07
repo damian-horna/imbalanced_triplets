@@ -8,6 +8,39 @@ from torch.utils.data import TensorDataset, DataLoader
 import matplotlib.pyplot as plt
 import random
 from utils import TripletLossWeighted, TripletLoss, TripletCleveland, calc_embeddings
+import pandas as pd
+
+dt_name_to_cols_to_encode = {
+    'cmc': [1,2,6,7],
+    'dermatology': list(range(0,10)) + list(range(10,33)),
+    'hayes-roth':[0,1,2,3],
+    'new_vehicle': [],
+    'new_yeast': [5],
+    '1czysty-cut': [],
+    '2delikatne-cut': [],
+    '3mocniej-cut': [],
+    '4delikatne-bezover-cut': [],
+    'balance-scale': [0,1,2,3],
+    'cleveland': [2,6,10,11,12],
+    'cleveland_v2': [2, 6, 10, 11, 12],
+    'glass': [],
+    'new_ecoli': [],
+    'new_led7digit': [],
+    'new_winequality-red': [],
+    'thyroid-newthyroid': []
+}
+
+
+def one_hot_encode_all(datasets):
+    ds_names = list(dt_name_to_cols_to_encode.keys())
+
+    for ds_name in ds_names:
+        k = ds_name
+        df = pd.DataFrame(data=datasets[k]['data'])
+        encoded = pd.get_dummies(df, columns=dt_name_to_cols_to_encode[ds_name], drop_first=True)
+
+        datasets[f"{k}_encoded"] = {'data': encoded.values, 'target': datasets[k]['target']}
+    return datasets
 
 
 def config_calculation_strategy1(datasets):
