@@ -82,6 +82,7 @@ def config_calculation_strategy2(datasets):
 
 
 def weights_calculation_strategy1(X_train, y_train):
+    # Inverse class frequencies, normalized
     cards = Counter(y_train)
     # weights = {c: (1/v) * 100 for c,v in cards.items()}
     weights = {c: 1/v for c, v in cards.items()}
@@ -149,10 +150,6 @@ def train_tripletnet(model, device, train_loader, optimizer, epoch, weights, nn_
         loss = loss_outputs[0] if type(loss_outputs) in (tuple, list) else loss_outputs
         loss.backward()
         optimizer.step()
-        # if batch_idx % log_interval == 0:
-        #     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-        #         epoch, batch_idx * len(data), len(train_loader.dataset),
-        #                100. * batch_idx / len(train_loader), loss.item()))
         train_loss.append(loss.item())
     return np.mean(train_loss)
 
@@ -183,7 +180,6 @@ def test_tripletnet(model, device, test_loader, weights, nn_config):
             loss_outputs = loss_fn(*loss_inputs)
             loss = loss_outputs[0] if type(loss_outputs) in (tuple, list) else loss_outputs
             test_loss.append(loss.item())
-    # print('\nTest set: Average loss: {:.4f}\n'.format(test_loss))
     return np.mean(test_loss)
 
 
