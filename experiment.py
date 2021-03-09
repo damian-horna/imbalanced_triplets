@@ -97,9 +97,9 @@ def config_calculation_strategy3(datasets):
         config[dataset_name] = {
             "nn_config": neural_net_config,
             "weighted_triplet_loss": True,
-            "lr": 1e-4,
-            "batch_size": 32,
-            "gamma": 0.95,
+            "lr": 0.003,
+            "batch_size": 16,
+            "gamma": 0.99,
             "epochs": 100
         }
     return config
