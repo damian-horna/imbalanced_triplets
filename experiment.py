@@ -32,6 +32,26 @@ dt_name_to_cols_to_encode = {
     'thyroid-newthyroid': []
 }
 
+dt_name_minority_classes = {
+    '1czysty-cut': [1, 2],
+    '2delikatne-cut': [1,2],
+    '3mocniej-cut': [1,2],
+    '4delikatne-bezover-cut': [1,2],
+    'balance-scale': [0],
+    'cleveland': [1,2,3,4],
+    'cleveland_v2': [1,2,3],
+    'cmc': [1],
+    'dermatology': [5],
+    'glass': [5,2,4],
+    'hayes-roth': [2],
+    'new_vehicle': [0,2],
+    'new_yeast': [2,3,4,5,6],
+    'new_ecoli': [4,2,3],
+    'new_led7digit': [1,4],
+    'new_winequality-red': [3,2],
+    'thyroid-newthyroid': [2,1]
+}
+
 
 def one_hot_encode_all(datasets):
     ds_names = list(dt_name_to_cols_to_encode.keys())
