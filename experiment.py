@@ -7,7 +7,7 @@ from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import TensorDataset, DataLoader
 import matplotlib.pyplot as plt
 import random
-from utils import TripletLossWeighted, TripletLoss, TripletCleveland, calc_embeddings
+from utils import TripletLossWeighted, TripletLoss, TripletDataset, calc_embeddings
 import pandas as pd
 import torch.nn.functional as F
 from torchvision import transforms
@@ -316,8 +316,8 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, cfg):
     dataset2.test_labels = torch.Tensor(y_test)
     dataset2.train = False
 
-    triplet_train_dataset = TripletCleveland(dataset1)
-    triplet_test_dataset = TripletCleveland(dataset2)
+    triplet_train_dataset = TripletDataset(dataset1)
+    triplet_test_dataset = TripletDataset(dataset2)
 
     triplet_train_loader = torch.utils.data.DataLoader(triplet_train_dataset, **train_kwargs)
     triplet_test_loader = torch.utils.data.DataLoader(triplet_test_dataset, **test_kwargs)

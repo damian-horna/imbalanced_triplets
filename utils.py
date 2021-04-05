@@ -123,7 +123,7 @@ def calc_embeddings(model, device, loader):
     return np.array(embeddings), np.array(labels)
 
 
-class TripletCleveland(Dataset):
+class TripletDataset(Dataset):
     def __init__(self, ds):
         np.random.seed(0)
         self.ds = ds
