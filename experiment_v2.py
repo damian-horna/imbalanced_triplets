@@ -425,6 +425,8 @@ def test_tripletnet(model, device, test_loader, weights, nn_config):
     correct = 0
     with torch.no_grad():
         for data, target in test_loader:
+            # print(data)
+            # print(target)
             data = (data,)
             data = tuple(d.cuda() for d in data)
 
@@ -444,6 +446,7 @@ def test_tripletnet(model, device, test_loader, weights, nn_config):
             loss_outputs = loss_fn(*loss_inputs)
             loss = loss_outputs[0] if type(loss_outputs) in (tuple, list) else loss_outputs
             test_loss.append(loss.item())
+    # print(test_loss)
     return np.mean(test_loss)
 
 
@@ -495,8 +498,8 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, cfg):
 
     n_classes = np.unique(y_train).size
 
-    train_batch_sampler = BalancedBatchSampler(dataset1.train_labels, n_classes=n_classes, n_samples=batch_size)
-    test_batch_sampler = BalancedBatchSampler(dataset2.test_labels, n_classes=n_classes, n_samples=test_batch_size)
+    train_batch_sampler = BalancedBatchSampler(dataset1.train_labels, n_classes=n_classes, n_samples=max(1,batch_size//n_classes), name="train")
+    test_batch_sampler = BalancedBatchSampler(dataset2.test_labels, n_classes=n_classes, n_samples=max(1,test_batch_size//n_classes), name="test")
 
     online_train_loader = torch.utils.data.DataLoader(dataset1, batch_sampler=train_batch_sampler, **train_kwargs)
     online_test_loader = torch.utils.data.DataLoader(dataset2, batch_sampler=test_batch_sampler, **test_kwargs)
@@ -603,7 +606,8 @@ class BalancedBatchSampler(BatchSampler):
     samples n_classes and within these classes samples n_samples
     Returns batches of size n_classes * n_samples
     """
-    def __init__(self, labels, n_classes, n_samples):
+    def __init__(self, labels, n_classes, n_samples, name):
+        self.name=name
         self.labels = labels
         self.labels_set = list(set(self.labels.numpy()))
         self.label_to_indices = {label: np.where(self.labels.numpy() == label)[0]
@@ -615,11 +619,14 @@ class BalancedBatchSampler(BatchSampler):
         self.n_classes = n_classes
         self.n_samples = n_samples
         self.n_dataset = len(self.labels)
+        # print(f"{self.name}: {self.n_dataset}")
+        # print(f"{self.name}: {self.n_classes} x {self.n_samples}")
         self.batch_size = self.n_samples * self.n_classes
 
     def __iter__(self):
         self.count = 0
         while self.count + self.batch_size < self.n_dataset:
+            # print(self.name)
             classes = np.random.choice(self.labels_set, self.n_classes, replace=False)
             indices = []
             for class_ in classes:
