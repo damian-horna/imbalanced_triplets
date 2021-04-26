@@ -823,7 +823,7 @@ class AverageNonzeroTripletsMetric:
         return 'Average nonzero triplets'
 
 
-#----------------------------------------------
+# ---------------------------------------------- SAFENESS
 class SafenessNet(nn.Module):
     def __init__(self, embedding_net):
         super(SafenessNet, self).__init__()
