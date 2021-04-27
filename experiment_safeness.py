@@ -360,25 +360,21 @@ class SafenessLoss(nn.Module):
         super(SafenessLoss, self).__init__()
 
     def forward(self, embeddings, target):
+        batch_size = embeddings[0].shape[0]
         anchor, emb1, emb2, emb3, emb4, emb5 = embeddings
         anchor_label, l1, l2, l3, l4, l5 = target
-        emb_same_class = []
 
-        emb_same_class = [emb for emb, clazz in zip(embeddings[1:], target[1:]) if clazz == anchor_label]
-        emb_different_class = [emb for emb, clazz in zip(embeddings[1:], target[1:]) if clazz != anchor_label]
+        losses = []
+        for i in range(batch_size):
+            emb_same_class = [emb[i,:] for emb, clazz in zip(embeddings[1:], target[1:]) if clazz[i] == anchor_label[i]]
+            emb_different_class = [emb[i,:] for emb, clazz in zip(embeddings[1:], target[1:]) if clazz[i] != anchor_label[i]]
 
-        same_class_dists = [(anchor - emb).pow(2).sum() for emb in emb_same_class]
-        different_class_dists = [(anchor - emb).pow(2).sum() for emb in emb_different_class]
-        if same_class_dists and different_class_dists:
-            same_class_dist_sum = torch.stack(same_class_dists).sum()
-            different_class_dist_sum = torch.stack(different_class_dists).sum()
-            return same_class_dist_sum - different_class_dist_sum
-        elif same_class_dists:
-            same_class_dist_sum = torch.stack(same_class_dists).sum()
-            return same_class_dist_sum
-        else:
-            different_class_dist_sum = torch.stack(different_class_dists).sum()
-            return - different_class_dist_sum
+            same_class_dists = [(anchor[i, :] - emb).pow(2).sum() for emb in emb_same_class]
+            different_class_dists = [(anchor[i, :] - emb).pow(2).sum() for emb in emb_different_class]
+            same_class_dist_sum = torch.stack(same_class_dists).sum() if same_class_dists else 0
+            different_class_dist_sum = torch.stack(different_class_dists).sum() if different_class_dists else 0
+            losses.append(same_class_dist_sum - different_class_dist_sum)
+        return torch.stack(losses).mean()
 
 
 def plot_batch(X_train, batch_idx, data, pca):
