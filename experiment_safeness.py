@@ -334,7 +334,7 @@ def train_safenessnet(model, device, train_loader, optimizer, epoch, weights, nn
     model.train()
     train_loss = []
     for batch_idx, (data, target) in enumerate(train_loader):
-        plot_batch(X_train, batch_idx, data, pca)
+        # plot_batch(X_train, batch_idx, data, pca)
         data = tuple(d.cuda() for d in data)
 
         target = tuple(t.cuda() for t in target)
@@ -362,16 +362,23 @@ class SafenessLoss(nn.Module):
     def forward(self, embeddings, target):
         anchor, emb1, emb2, emb3, emb4, emb5 = embeddings
         anchor_label, l1, l2, l3, l4, l5 = target
+        emb_same_class = []
 
         emb_same_class = [emb for emb, clazz in zip(embeddings[1:], target[1:]) if clazz == anchor_label]
         emb_different_class = [emb for emb, clazz in zip(embeddings[1:], target[1:]) if clazz != anchor_label]
 
-        distances_same_class = torch.stack([(anchor - emb).pow(2).sum() for emb in emb_same_class])
-        print(f"Distances same class: {distances_same_class}")
-        same_class_distances_sum = torch.sum(distances_same_class)
-        print(f"Same class distances sum: {same_class_distances_sum}")
-
-        return same_class_distances_sum
+        same_class_dists = [(anchor - emb).pow(2).sum() for emb in emb_same_class]
+        different_class_dists = [(anchor - emb).pow(2).sum() for emb in emb_different_class]
+        if same_class_dists and different_class_dists:
+            same_class_dist_sum = torch.stack(same_class_dists).sum()
+            different_class_dist_sum = torch.stack(different_class_dists).sum()
+            return same_class_dist_sum - different_class_dist_sum
+        elif same_class_dists:
+            same_class_dist_sum = torch.stack(same_class_dists).sum()
+            return same_class_dist_sum
+        else:
+            different_class_dist_sum = torch.stack(different_class_dists).sum()
+            return - different_class_dist_sum
 
 
 def plot_batch(X_train, batch_idx, data, pca):
@@ -514,7 +521,7 @@ class NeighborsDataset(Dataset):
             neigh_indices = self.neigh.kneighbors([anchor.numpy()], return_distance=False)
             neigh_indices = [ind for ind in neigh_indices[0] if ind != index] # without self
             neighbors = self.test_data[neigh_indices]
-            neighbors_labels = self.test_data[neigh_indices]
+            neighbors_labels = self.test_labels[neigh_indices]
         return (anchor, *neighbors), [anchor_label, *neighbors_labels]
 
     def __len__(self):
