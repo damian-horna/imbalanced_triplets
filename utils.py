@@ -114,7 +114,8 @@ def calc_embeddings(model, device, loader):
 
     model.eval()
     with torch.no_grad():
-        for data, target in tqdm(loader):
+        # for data, target in tqdm(loader):
+        for data, target in loader:
             data, target = data.to(device), target.to(device)
             embedding = model.embed(data)
             embeddings.append(embedding[0].cpu().numpy())

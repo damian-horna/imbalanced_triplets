@@ -3,11 +3,12 @@ import numpy as np
 import torch.nn as nn
 import torch
 import torch.optim as optim
+from sklearn.decomposition import PCA
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import TensorDataset, DataLoader, Dataset
 import matplotlib.pyplot as plt
 import random
-from utils import calc_embeddings
+from utils import calc_embeddings, plot_embeddings
 import pandas as pd
 import torch.nn.functional as F
 from torch.utils.data.sampler import BatchSampler
@@ -380,7 +381,9 @@ class SafenessLoss(nn.Module):
             different_class_dist_min_sum = torch.stack(diff_class_mins).sum() if diff_class_mins else 0
 
             losses.append(same_class_dist_sum - different_class_dist_min_sum)
-        return torch.stack(losses).mean()
+
+        result = torch.stack(losses).mean()
+        return result
 
 
 def plot_batch(X_train, batch_idx, data, pca):
@@ -455,6 +458,7 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca):
     test_losses = []
     train_losses = []
     for epoch in range(1, epochs + 1):
+        # print(f"Epoch: {epoch}")
         train_losses.append(train_safenessnet(model, device, neighbors_train_loader, optimizer, epoch, weights, nn_config, log_interval, pca, X_train))
         test_losses.append(test_safenessnet(model, device, neighbors_test_loader, weights, nn_config))
         scheduler.step()
@@ -464,6 +468,11 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca):
                                                                                          y_test, embeddings_train, embeddings_test,
                                                                                          batch_size, test_batch_size,
                                                                                          use_cuda)
+        # PCA embeddings_train
+        pca = PCA(n_components=2)
+        plot_embeddings(pca.fit_transform(embeddings_train), y_train)
+        plt.title(f"Embeddings_train after {epoch} epochs")
+        plt.show()
 
     if save_model:
         torch.save(model.state_dict(), "mnist_cnn_triplet.pt")
