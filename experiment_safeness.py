@@ -372,11 +372,11 @@ class SafenessLoss(nn.Module):
             same_class_dists = [(anchor[i, :] - emb).pow(2).sum() for emb in emb_same_class]
             different_class_dists = [(anchor[i, :] - emb).pow(2).sum() for emb in emb_different_class]
 
-            alpha = max(same_class_dists) if same_class_dists else 1.0
+            alpha = max(same_class_dists) if same_class_dists else 1.0 # Set alpha to some predefined margin value
 
             same_class_dist_sum = torch.stack(same_class_dists).sum() if same_class_dists else 0
 
-            diff_class_mins = [min(dist - alpha, 0) for dist in different_class_dists]
+            diff_class_mins = [dist - alpha for dist in different_class_dists if dist-alpha < 0]
             different_class_dist_min_sum = torch.stack(diff_class_mins).sum() if diff_class_mins else 0
 
             losses.append(same_class_dist_sum - different_class_dist_min_sum)
