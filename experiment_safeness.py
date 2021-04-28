@@ -438,6 +438,54 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca):
 
     device = torch.device("cuda" if use_cuda else "cpu")
 
+    dataset1, dataset2, neighbors_test_loader, neighbors_train_loader = init_loaders(X_train, X_test, y_train, y_test, X_train, X_test,
+                                                                                     batch_size, test_batch_size,
+                                                                                     use_cuda)
+
+    embedding_net = EmbeddingNet(nn_config)
+    model = SafenessNet(embedding_net).to(device)
+    # model = embedding_net.to(device)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+
+    scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
+
+    # Calculate initial embeddings:
+    # embeddings_train, embeddings_test= train_and_test_embeddings(dataset1, dataset2, device, model)
+
+    test_losses = []
+    train_losses = []
+    for epoch in range(1, epochs + 1):
+        train_losses.append(train_safenessnet(model, device, neighbors_train_loader, optimizer, epoch, weights, nn_config, log_interval, pca, X_train))
+        test_losses.append(test_safenessnet(model, device, neighbors_test_loader, weights, nn_config))
+        scheduler.step()
+
+        embeddings_train, embeddings_test = train_and_test_embeddings(dataset1, dataset2, device, model)
+        dataset1, dataset2, neighbors_test_loader, neighbors_train_loader = init_loaders(X_train, X_test, y_train,
+                                                                                         y_test, embeddings_train, embeddings_test,
+                                                                                         batch_size, test_batch_size,
+                                                                                         use_cuda)
+
+    if save_model:
+        torch.save(model.state_dict(), "mnist_cnn_triplet.pt")
+
+    embeddings_train, embeddings_test = train_and_test_embeddings(dataset1, dataset2, device, model)
+    plt.plot(test_losses, label="test losses")
+    plt.plot(train_losses, label="train losses")
+    plt.legend()
+    plt.show()
+
+    return embeddings_train, embeddings_test
+
+
+def train_and_test_embeddings(dataset1, dataset2, device, model):
+    test_loader = torch.utils.data.DataLoader(dataset2, batch_size=1)
+    train_loader = torch.utils.data.DataLoader(dataset1, batch_size=1)
+    embeddings_train, _ = calc_embeddings(model, device, train_loader)
+    embeddings_test, _ = calc_embeddings(model, device, test_loader)
+    return embeddings_train, embeddings_test
+
+
+def init_loaders(X_train, X_test, y_train, y_test, train_repr, test_repr, batch_size, test_batch_size, use_cuda):
     train_kwargs = {'batch_size': batch_size}
     test_kwargs = {'batch_size': test_batch_size}
     if use_cuda:
@@ -457,70 +505,44 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca):
     dataset2.test_labels = torch.Tensor(y_test)
     dataset2.train = False
 
-    neighbors_train_dataset = NeighborsDataset(dataset1)
-    neighbors_test_dataset = NeighborsDataset(dataset2)
+    neighbors_train_dataset = NeighborsDataset(dataset1, train_repr)
+    neighbors_test_dataset = NeighborsDataset(dataset2, test_repr)
 
     neighbors_train_loader = torch.utils.data.DataLoader(neighbors_train_dataset, **train_kwargs)
     neighbors_test_loader = torch.utils.data.DataLoader(neighbors_test_dataset, **test_kwargs)
 
-    embedding_net = EmbeddingNet(nn_config)
-    model = SafenessNet(embedding_net).to(device)
-    # model = embedding_net.to(device)
-    optimizer = optim.Adam(model.parameters(), lr=lr)
-
-    scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
-    test_losses = []
-    train_losses = []
-    for epoch in range(1, epochs + 1):
-        train_losses.append(train_safenessnet(model, device, neighbors_train_loader, optimizer, epoch, weights, nn_config, log_interval, pca, X_train))
-        test_losses.append(test_safenessnet(model, device, neighbors_test_loader, weights, nn_config))
-        scheduler.step()
-
-    if save_model:
-        torch.save(model.state_dict(), "mnist_cnn_triplet.pt")
-
-    test_loader = torch.utils.data.DataLoader(dataset2, batch_size=1)
-    train_loader = torch.utils.data.DataLoader(dataset1, batch_size=1)
-
-    embeddings_train, _ = calc_embeddings(model, device, train_loader)
-    embeddings_test, _ = calc_embeddings(model, device, test_loader)
-    plt.plot(test_losses, label="test losses")
-    plt.plot(train_losses, label="train losses")
-    plt.legend()
-    plt.show()
-
-    return embeddings_train, embeddings_test
+    return dataset1, dataset2, neighbors_test_loader, neighbors_train_loader
 
 
 class NeighborsDataset(Dataset):
-    def __init__(self, ds, n_neighbors=6):
+    def __init__(self, ds, representation, n_neighbors=6):
         np.random.seed(0)
         self.ds = ds
         self.train = self.ds.train
         self.neigh = NearestNeighbors(n_neighbors=n_neighbors)
+        self.representation = representation
 
         if self.train:
             self.train_labels = self.ds.train_labels
             self.train_data = self.ds.train_data
-            self.neigh.fit(self.ds.train_data)
-
         else:
             self.test_labels = self.ds.test_labels
             self.test_data = self.ds.test_data
-            self.neigh.fit(self.ds.test_data)
+        self.neigh.fit(self.representation)
 
     def __getitem__(self, index):
+        anchor_repr = self.representation[index, :]
         if self.train:
             anchor = self.train_data[index]
             anchor_label = self.train_labels[index]
-            neigh_indices = self.neigh.kneighbors([anchor.numpy()], return_distance=False)
+            neigh_indices = self.neigh.kneighbors([anchor_repr], return_distance=False)
             neigh_indices = [ind for ind in neigh_indices[0] if ind != index] # without self
             neighbors = self.train_data[neigh_indices, :]
             neighbors_labels = self.train_labels[neigh_indices]
         else:
             anchor = self.test_data[index]
             anchor_label = self.test_labels[index]
-            neigh_indices = self.neigh.kneighbors([anchor.numpy()], return_distance=False)
+            neigh_indices = self.neigh.kneighbors([anchor_repr], return_distance=False)
             neigh_indices = [ind for ind in neigh_indices[0] if ind != index] # without self
             neighbors = self.test_data[neigh_indices]
             neighbors_labels = self.test_labels[neigh_indices]
