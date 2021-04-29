@@ -370,10 +370,10 @@ class SafenessLoss(nn.Module):
             emb_same_class = [emb[i,:] for emb, clazz in zip(embeddings[1:], target[1:]) if clazz[i] == anchor_label[i]]
             emb_different_class = [emb[i,:] for emb, clazz in zip(embeddings[1:], target[1:]) if clazz[i] != anchor_label[i]]
 
-            same_class_dists = [(anchor[i, :] - emb).pow(2).sum() for emb in emb_same_class]
-            different_class_dists = [(anchor[i, :] - emb).pow(2).sum() for emb in emb_different_class]
+            same_class_dists = [(anchor[i, :] - emb).pow(2).sum().pow(0.5) for emb in emb_same_class]
+            different_class_dists = [(anchor[i, :] - emb).pow(2).sum().pow(0.5) for emb in emb_different_class]
 
-            alpha = max(same_class_dists) if same_class_dists else 1.0 # Set alpha to some predefined margin value
+            alpha = max(same_class_dists) if same_class_dists else 1.0 # Set alpha to some predefined margin value if there are no neighbors from the same class
 
             same_class_dist_sum = torch.stack(same_class_dists).sum() if same_class_dists else 0
 
@@ -468,11 +468,12 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca):
                                                                                          y_test, embeddings_train, embeddings_test,
                                                                                          batch_size, test_batch_size,
                                                                                          use_cuda)
-        # PCA embeddings_train
-        pca = PCA(n_components=2)
-        plot_embeddings(pca.fit_transform(embeddings_train), y_train)
-        plt.title(f"Embeddings_train after {epoch} epochs")
-        plt.show()
+        if epoch % 10 == 0:
+            # PCA embeddings_train
+            pca = PCA(n_components=2)
+            plot_embeddings(pca.fit_transform(embeddings_train), y_train)
+            plt.title(f"Embeddings_train after {epoch} epochs")
+            plt.show()
 
     if save_model:
         torch.save(model.state_dict(), "mnist_cnn_triplet.pt")
