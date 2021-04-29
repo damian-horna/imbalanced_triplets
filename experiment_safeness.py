@@ -370,8 +370,8 @@ class SafenessLoss(nn.Module):
             emb_same_class = [emb[i,:] for emb, clazz in zip(embeddings[1:], target[1:]) if clazz[i] == anchor_label[i]]
             emb_different_class = [emb[i,:] for emb, clazz in zip(embeddings[1:], target[1:]) if clazz[i] != anchor_label[i]]
 
-            same_class_dists = [(anchor[i, :] - emb).pow(2).sum().pow(0.5) for emb in emb_same_class]
-            different_class_dists = [(anchor[i, :] - emb).pow(2).sum().pow(0.5) for emb in emb_different_class]
+            same_class_dists = [(anchor[i, :] - emb).pow(2).sum() for emb in emb_same_class]
+            different_class_dists = [(anchor[i, :] - emb).pow(2).sum() for emb in emb_different_class]
 
             alpha = max(same_class_dists) if same_class_dists else 1.0 # Set alpha to some predefined margin value if there are no neighbors from the same class
 
@@ -382,6 +382,8 @@ class SafenessLoss(nn.Module):
 
             losses.append(same_class_dist_sum - different_class_dist_min_sum)
 
+        # print("Losses:")
+        # print(losses)
         result = torch.stack(losses).mean()
         return result
 
