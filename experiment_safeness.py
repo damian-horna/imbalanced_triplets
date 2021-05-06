@@ -380,7 +380,8 @@ class SafenessLoss(nn.Module):
             diff_class_mins = [dist - alpha for dist in different_class_dists if dist-alpha < 0]
             different_class_dist_min_sum = torch.stack(diff_class_mins).sum() if diff_class_mins else 0
 
-            losses.append(same_class_dist_sum - different_class_dist_min_sum)
+            if torch.is_tensor(same_class_dist_sum - different_class_dist_min_sum):
+                losses.append(same_class_dist_sum - different_class_dist_min_sum)
 
         # print("Losses:")
         # print(losses)
@@ -531,6 +532,7 @@ class NeighborsDataset(Dataset):
         np.random.seed(0)
         self.ds = ds
         self.train = self.ds.train
+        self.n_neighbors = n_neighbors
         self.neigh = NearestNeighbors(n_neighbors=n_neighbors)
         self.representation = representation
 
@@ -549,6 +551,7 @@ class NeighborsDataset(Dataset):
             anchor_label = self.train_labels[index]
             neigh_indices = self.neigh.kneighbors([anchor_repr], return_distance=False)
             neigh_indices = [ind for ind in neigh_indices[0] if ind != index] # without self
+            neigh_indices = neigh_indices[: self.n_neighbors-1]
             neighbors = self.train_data[neigh_indices, :]
             neighbors_labels = self.train_labels[neigh_indices]
         else:
@@ -556,6 +559,7 @@ class NeighborsDataset(Dataset):
             anchor_label = self.test_labels[index]
             neigh_indices = self.neigh.kneighbors([anchor_repr], return_distance=False)
             neigh_indices = [ind for ind in neigh_indices[0] if ind != index] # without self
+            neigh_indices = neigh_indices[: self.n_neighbors-1]
             neighbors = self.test_data[neigh_indices]
             neighbors_labels = self.test_labels[neigh_indices]
         return (anchor, *neighbors), [anchor_label, *neighbors_labels]
