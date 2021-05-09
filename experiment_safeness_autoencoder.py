@@ -302,6 +302,19 @@ def config_calculation_strategy3(datasets):
     return config
 
 
+def autoenc_config_calc_strategy1(datasets):
+    config = {}
+    for dataset_name in datasets:
+        config[dataset_name] = {
+            "epochs": 25,
+            "batch_size": 16,
+            "test_batch_size": 16,
+            "lr": 0.001,
+            "gamma": 1
+        }
+    return config
+
+
 def weights_calculation_strategy1(X_train, y_train):
     # Inverse class frequencies, normalized
     cards = Counter(y_train)
@@ -447,7 +460,7 @@ def test_safenessnet(model, device, test_loader, weights, nn_config):
     return np.mean(test_loss)
 
 
-def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca):
+def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca, autoenc_cfg):
     seed = 3
     random.seed(seed)
     np.random.seed(seed)
@@ -476,9 +489,12 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca):
 
     embedding_net = EmbeddingNet(nn_config)
     # autoencoder training here
+    autoencoder = AutoEncoder(embedding_net, DecoderNet(nn_config))
+    autoencoder.to(device)
+    autoencoder_trained = train_autoencoder(autoencoder, X_train, y_train, X_test, y_test, autoenc_cfg)
 
 
-    model = SafenessNet(embedding_net).to(device)
+    model = SafenessNet(autoencoder_trained.encoder).to(device)
     # model = embedding_net.to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
@@ -518,6 +534,82 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca):
 
     return embeddings_train, embeddings_test
 
+
+def train_autoencoder(model, X_train, y_train, X_test, y_test, autoenc_cfg):
+    print("Training autoencoder...")
+    train_kwargs = {'batch_size': autoenc_cfg['batch_size']}
+    test_kwargs = {'batch_size': autoenc_cfg['test_batch_size']}
+    if True: # use cuda?
+        cuda_kwargs = {'num_workers': 1,
+                       'pin_memory': True,
+                       'shuffle': True}
+        train_kwargs.update(cuda_kwargs)
+        test_kwargs.update(cuda_kwargs)
+
+    dataset1 = TensorDataset(torch.Tensor(X_train), torch.Tensor(y_train))
+    dataset1.train_data = torch.Tensor(X_train)
+    dataset1.train_labels = torch.Tensor(y_train)
+    dataset1.train = True
+
+    dataset2 = TensorDataset(torch.Tensor(X_test), torch.Tensor(y_test))
+    dataset2.test_data = torch.Tensor(X_test)
+    dataset2.test_labels = torch.Tensor(y_test)
+    dataset2.train = False
+
+    train_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
+    test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
+
+    num_epochs = autoenc_cfg['epochs']
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=autoenc_cfg['lr'])
+    scheduler = StepLR(optimizer, step_size=1, gamma=autoenc_cfg['gamma'])
+
+    train_losses = []
+    test_losses = []
+    for epoch in range(num_epochs):
+        train_l = train_autoencodernet(model, train_loader, optimizer)
+        test_l = test_autoencodernet(model, test_loader)
+        scheduler.step()
+
+        train_losses.append(train_l)
+        test_losses.append(test_l)
+
+    plt.plot(test_losses, label="test_losses autoencoder")
+    plt.plot(train_losses, label="train losses autoencoder")
+    plt.legend()
+    plt.show()
+
+    return model
+
+
+def train_autoencodernet(model, train_loader, optimizer):
+    model.train()
+    train_loss = []
+    for batch_idx, (data, target) in enumerate(train_loader):
+        data = data.cuda()
+
+        optimizer.zero_grad()
+        outputs = model(data)
+        loss_fn = nn.MSELoss()
+        loss = loss_fn(outputs, data)
+        loss.backward()
+        optimizer.step()
+        train_loss.append(loss.item())
+    return np.mean(train_loss)
+
+
+def test_autoencodernet(model, test_loader):
+    model.eval()
+    test_loss = []
+    with torch.no_grad():
+        for data, target in test_loader:
+            data = data.cuda()
+            outputs = model(data)
+            loss_fn = nn.MSELoss()
+            loss = loss_fn(outputs, data)
+            test_loss.append(loss.item())
+
+    return np.mean(test_loss)
 
 def train_and_test_embeddings(dataset1, dataset2, device, model):
     test_loader = torch.utils.data.DataLoader(dataset2, batch_size=1)
