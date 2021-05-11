@@ -416,7 +416,7 @@ class SafenessLoss(nn.Module):
 
             same_class_dist_sum = torch.stack(same_class_dists).sum() if same_class_dists else 0
 
-            diff_class_mins = [dist - alpha for dist in different_class_dists if dist-alpha < 0]
+            diff_class_mins = [dist - alpha -1 for dist in different_class_dists if dist-alpha -1 < 0]
             different_class_dist_min_sum = torch.stack(diff_class_mins).sum() if diff_class_mins else 0
 
             if torch.is_tensor(same_class_dist_sum - different_class_dist_min_sum):
@@ -502,6 +502,16 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca, autoenc_
 
     # Calculate initial embeddings:
     # embeddings_train, embeddings_test= train_and_test_embeddings(dataset1, dataset2, device, model)
+
+
+    # Plot latent representation of autoencoder
+    embeddings_train, embeddings_test = train_and_test_embeddings(dataset1, dataset2, device, model)
+    pca = PCA(n_components=2)
+    plot_embeddings(pca.fit_transform(embeddings_train), y_train)
+    plt.title(f"Autoencoder - latent representation")
+    plt.show()
+
+
 
     test_losses = []
     train_losses = []
