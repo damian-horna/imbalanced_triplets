@@ -315,6 +315,13 @@ def autoenc_config_calc_strategy1(datasets):
     return config
 
 
+def construct_k_dict(datasets):
+    k_dict = {}
+    for d_name in datasets:
+        k_dict[d_name] = 21
+    return k_dict
+
+
 def weights_calculation_strategy1(X_train, y_train):
     # Inverse class frequencies, normalized
     cards = Counter(y_train)
@@ -412,15 +419,15 @@ class SafenessLoss(nn.Module):
             same_class_dists = [(anchor[i, :] - emb).pow(2).sum() for emb in emb_same_class]
             different_class_dists = [(anchor[i, :] - emb).pow(2).sum() for emb in emb_different_class]
 
-            alpha = max(same_class_dists) if same_class_dists else 1.0 # Set alpha to some predefined margin value if there are no neighbors from the same class
+            alpha = max(same_class_dists) + 1 if same_class_dists else 1.0 # Set alpha to some predefined margin value if there are no neighbors from the same class
 
             same_class_dist_sum = torch.stack(same_class_dists).sum() if same_class_dists else 0
 
-            diff_class_mins = [dist - alpha -1 for dist in different_class_dists if dist-alpha -1 < 0]
+            diff_class_mins = [dist - alpha for dist in different_class_dists if dist-alpha < 0]
             different_class_dist_min_sum = torch.stack(diff_class_mins).sum() if diff_class_mins else 0
 
             if torch.is_tensor(same_class_dist_sum - different_class_dist_min_sum):
-                losses.append((same_class_dist_sum - different_class_dist_min_sum) * (1 - len(emb_same_class) / len(embeddings[1:])))
+                losses.append((same_class_dist_sum/(len(same_class_dists) + 1e-6) - different_class_dist_min_sum / (len(different_class_dists) + 1e-6)) * (1 - len(emb_same_class) / len(embeddings[1:])))
 
         # print("Losses:")
         # print(losses)
@@ -460,7 +467,7 @@ def test_safenessnet(model, device, test_loader, weights, nn_config):
     return np.mean(test_loss)
 
 
-def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca, autoenc_cfg):
+def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca, autoenc_cfg, k_neigh):
     seed = 3
     random.seed(seed)
     np.random.seed(seed)
@@ -485,7 +492,7 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca, autoenc_
 
     dataset1, dataset2, neighbors_test_loader, neighbors_train_loader = init_loaders(X_train, X_test, y_train, y_test, X_train, X_test,
                                                                                      batch_size, test_batch_size,
-                                                                                     use_cuda)
+                                                                                     use_cuda, k_neigh)
 
     embedding_net = EmbeddingNet(nn_config)
     # autoencoder training here
@@ -525,7 +532,7 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca, autoenc_
         dataset1, dataset2, neighbors_test_loader, neighbors_train_loader = init_loaders(X_train, X_test, y_train,
                                                                                          y_test, embeddings_train, embeddings_test,
                                                                                          batch_size, test_batch_size,
-                                                                                         use_cuda)
+                                                                                         use_cuda, k_neigh)
         if epoch % 10 == 0:
             # PCA embeddings_train
             pca = PCA(n_components=2)
@@ -629,7 +636,7 @@ def train_and_test_embeddings(dataset1, dataset2, device, model):
     return embeddings_train, embeddings_test
 
 
-def init_loaders(X_train, X_test, y_train, y_test, train_repr, test_repr, batch_size, test_batch_size, use_cuda):
+def init_loaders(X_train, X_test, y_train, y_test, train_repr, test_repr, batch_size, test_batch_size, use_cuda, k_neigh):
     train_kwargs = {'batch_size': batch_size}
     test_kwargs = {'batch_size': test_batch_size}
     if use_cuda:
@@ -649,8 +656,8 @@ def init_loaders(X_train, X_test, y_train, y_test, train_repr, test_repr, batch_
     dataset2.test_labels = torch.Tensor(y_test)
     dataset2.train = False
 
-    neighbors_train_dataset = NeighborsDataset(dataset1, train_repr)
-    neighbors_test_dataset = NeighborsDataset(dataset2, test_repr)
+    neighbors_train_dataset = NeighborsDataset(dataset1, train_repr, n_neighbors=k_neigh)
+    neighbors_test_dataset = NeighborsDataset(dataset2, test_repr, n_neighbors=k_neigh)
 
     neighbors_train_loader = torch.utils.data.DataLoader(neighbors_train_dataset, **train_kwargs)
     neighbors_test_loader = torch.utils.data.DataLoader(neighbors_test_dataset, **test_kwargs)
