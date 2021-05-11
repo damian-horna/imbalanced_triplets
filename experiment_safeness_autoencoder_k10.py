@@ -420,7 +420,7 @@ class SafenessLoss(nn.Module):
             different_class_dist_min_sum = torch.stack(diff_class_mins).sum() if diff_class_mins else 0
 
             if torch.is_tensor(same_class_dist_sum - different_class_dist_min_sum):
-                losses.append(same_class_dist_sum - different_class_dist_min_sum)
+                losses.append((same_class_dist_sum - different_class_dist_min_sum) * (1 - len(emb_same_class) / len(embeddings[1:])))
 
         # print("Losses:")
         # print(losses)
@@ -649,7 +649,7 @@ def init_loaders(X_train, X_test, y_train, y_test, train_repr, test_repr, batch_
 
 
 class NeighborsDataset(Dataset):
-    def __init__(self, ds, representation, n_neighbors=11):
+    def __init__(self, ds, representation, n_neighbors=21):
         np.random.seed(0)
         self.ds = ds
         self.train = self.ds.train
