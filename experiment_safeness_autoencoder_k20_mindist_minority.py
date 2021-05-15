@@ -438,6 +438,7 @@ class SafenessLoss(nn.Module):
 
             if torch.is_tensor(same_class_dist_sum - different_class_dist_min_sum):
                 losses.append((same_class_dist_sum/(len(same_class_dists) + 1e-6) - different_class_dist_min_sum / (len(different_class_dists) + 1e-6)) * (1 - len(emb_same_class) / len(embeddings[1:])))
+                # losses.append((same_class_dist_sum/(len(same_class_dists) + 1e-6) - different_class_dist_min_sum / (len(different_class_dists) + 1e-6)) * min((1 - len(emb_same_class) / len(embeddings[1:])), 0.5))
 
         # print("Losses:")
         # print(losses)
