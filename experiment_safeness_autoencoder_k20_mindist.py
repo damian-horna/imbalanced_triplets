@@ -380,6 +380,7 @@ class AutoEncoder(nn.Module):
 def train_safenessnet(model, device, train_loader, optimizer, epoch, weights, nn_config, log_interval=10, pca=None, X_train=None):
     model.train()
     train_loss = []
+    safety_coefs = []
     for batch_idx, (data, target) in enumerate(train_loader):
         # plot_batch(X_train, batch_idx, data, pca)
         data = tuple(d.cuda() for d in data)
@@ -395,11 +396,12 @@ def train_safenessnet(model, device, train_loader, optimizer, epoch, weights, nn
 
         loss_fn = SafenessLoss()
 
-        loss = loss_fn(*loss_inputs)
+        loss, safety_coef = loss_fn(*loss_inputs)
+        safety_coefs.append(safety_coef)
         loss.backward()
         optimizer.step()
         train_loss.append(loss.item())
-    return np.mean(train_loss)
+    return np.mean(train_loss), np.mean(safety_coefs)
 
 
 class SafenessLoss(nn.Module):
@@ -410,6 +412,7 @@ class SafenessLoss(nn.Module):
         batch_size = embeddings[0].shape[0]
         anchor = embeddings[0]
         anchor_label = target[0]
+        safety_coefs = []
 
         losses = []
         for i in range(batch_size):
@@ -428,11 +431,11 @@ class SafenessLoss(nn.Module):
 
             if torch.is_tensor(same_class_dist_sum - different_class_dist_min_sum):
                 losses.append((same_class_dist_sum/(len(same_class_dists) + 1e-6) - different_class_dist_min_sum / (len(different_class_dists) + 1e-6)) * (1 - len(emb_same_class) / len(embeddings[1:])))
-
+                safety_coefs.append(len(emb_same_class) / len(embeddings[1:]))
         # print("Losses:")
         # print(losses)
         result = torch.stack(losses).mean()
-        return result
+        return result, np.mean(safety_coefs)
 
 
 def plot_batch(X_train, batch_idx, data, pca):
@@ -462,7 +465,7 @@ def test_safenessnet(model, device, test_loader, weights, nn_config):
 
             loss_fn = SafenessLoss()
 
-            loss = loss_fn(*loss_inputs)
+            loss, safety_coef = loss_fn(*loss_inputs)
             test_loss.append(loss.item())
     return np.mean(test_loss)
 
@@ -522,9 +525,12 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca, autoenc_
 
     test_losses = []
     train_losses = []
+    safety_coefs = []
     for epoch in range(1, epochs + 1):
         # print(f"Epoch: {epoch}")
-        train_losses.append(train_safenessnet(model, device, neighbors_train_loader, optimizer, epoch, weights, nn_config, log_interval, pca, X_train))
+        train_loss, safety_coef = train_safenessnet(model, device, neighbors_train_loader, optimizer, epoch, weights, nn_config, log_interval, pca, X_train)
+        safety_coefs.append(safety_coef)
+        train_losses.append(train_loss)
         test_losses.append(test_safenessnet(model, device, neighbors_test_loader, weights, nn_config))
         scheduler.step()
 
@@ -546,6 +552,10 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca, autoenc_
     embeddings_train, embeddings_test = train_and_test_embeddings(dataset1, dataset2, device, model)
     plt.plot(test_losses, label="test losses")
     plt.plot(train_losses, label="train losses")
+    plt.legend()
+    plt.show()
+
+    plt.plot(safety_coefs, label="mean safety coefficient")
     plt.legend()
     plt.show()
 
