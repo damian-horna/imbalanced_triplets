@@ -539,7 +539,7 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca, autoenc_
                                                                                          y_test, embeddings_train, embeddings_test,
                                                                                          batch_size, test_batch_size,
                                                                                          use_cuda, k_neigh)
-        if epoch % 1 == 0:
+        if epoch % 10 == 0:
             # PCA embeddings_train
             pca = PCA(n_components=2)
             plot_embeddings(pca.fit_transform(embeddings_train), y_train)
