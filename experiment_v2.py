@@ -61,20 +61,20 @@ def config_tuned_for_lda(config):
                                    'units_3rd_layer': 128,
                                    'units_latent_layer': 8},
                      'weighted_triplet_loss': True,
-                     'lr': 0.0001,
+                     'lr': 0.0002,
                      'batch_size': 16,
                      'gamma': 0.99,
-                     'epochs': 100}
+                     'epochs': 55}
 
     config['dermatology'] = {'nn_config': {'units_1st_layer': 97,
                                            'units_2nd_layer': 512,
                                            'units_3rd_layer': 256,
                                            'units_latent_layer': 16},
                              'weighted_triplet_loss': True,
-                             'lr': 0.0015,
+                             'lr': 0.0010,
                              'batch_size': 16,
                              'gamma': 0.99,
-                             'epochs': 150}
+                             'epochs': 45}
 
     config['hayes-roth'] = {'nn_config': {'units_1st_layer': 11,
                                           'units_2nd_layer': 128,
@@ -91,10 +91,10 @@ def config_tuned_for_lda(config):
                                            'units_3rd_layer': 128,
                                            'units_latent_layer': 16},
                              'weighted_triplet_loss': True,
-                             'lr': 0.003,
+                             'lr': 0.001,
                              'batch_size': 16,
                              'gamma': 0.99,
-                             'epochs': 100}
+                             'epochs': 150}
 
     config['new_yeast'] = {'nn_config': {'units_1st_layer': 9,
                                          'units_2nd_layer': 300,
@@ -102,36 +102,36 @@ def config_tuned_for_lda(config):
                                          'units_latent_layer': 12},
                            'weighted_triplet_loss': True,
                            'lr': 0.0004,
-                           'batch_size': 16,
+                           'batch_size': 32,
                            'gamma': 0.99,
-                           'epochs': 100}
+                           'epochs': 60}
 
     config['balance-scale'] = {'nn_config': {'units_1st_layer': 16,
                                              'units_2nd_layer': 256,
                                              'units_3rd_layer': 128,
                                              'units_latent_layer': 10},
                                'weighted_triplet_loss': True,
-                               'lr': 0.004,
+                               'lr': 0.007,
                                'batch_size': 16,
                                'gamma': 0.99,
-                               'epochs': 200}
+                               'epochs': 100}
 
     config['cleveland'] = {'nn_config': {'units_1st_layer': 24,
                                          'units_2nd_layer': 72,
                                          'units_3rd_layer': 48,
                                          'units_latent_layer': 16},
                            'weighted_triplet_loss': True,
-                           'lr': 0.0005,
+                           'lr': 0.00002,
                            'batch_size': 16,
                            'gamma': 0.99,
-                           'epochs': 150}
+                           'epochs': 120}
 
     config['cleveland_v2'] = {'nn_config': {'units_1st_layer': 23,
                                             'units_2nd_layer': 256,
                                             'units_3rd_layer': 128,
                                             'units_latent_layer': 16},
                               'weighted_triplet_loss': True,
-                              'lr': 0.0005,
+                              'lr': 0.00002,
                               'batch_size': 16,
                               'gamma': 0.99,
                               'epochs': 100}
@@ -141,27 +141,27 @@ def config_tuned_for_lda(config):
                                      'units_3rd_layer': 128,
                                      'units_latent_layer': 12},
                        'weighted_triplet_loss': True,
-                       'lr': 0.0005,
+                       'lr': 0.001,
                        'batch_size': 16,
                        'gamma': 0.99,
-                       'epochs': 150}
+                       'epochs': 120}
 
     config['thyroid-newthyroid'] = {'nn_config': {'units_1st_layer': 5,
                                                   'units_2nd_layer': 64,
                                                   'units_3rd_layer': 32,
                                                   'units_latent_layer': 8},
                                     'weighted_triplet_loss': True,
-                                    'lr': 0.004,
+                                    'lr': 0.001,
                                     'batch_size': 16,
                                     'gamma': 0.99,
-                                    'epochs': 150}
+                                    'epochs': 120}
 
     config['new_ecoli'] = {'nn_config': {'units_1st_layer': 7,
                                          'units_2nd_layer': 128,
                                          'units_3rd_layer': 64,
                                          'units_latent_layer': 12},
                            'weighted_triplet_loss': True,
-                           'lr': 0.0005,
+                           'lr': 0.0001,
                            'batch_size': 16,
                            'gamma': 0.99,
                            'epochs': 100}
@@ -191,42 +191,214 @@ def config_tuned_for_lda(config):
                                                       'units_3rd_layer': 64,
                                                       'units_latent_layer': 8},
                                         'weighted_triplet_loss': True,
-                                        'lr': 0.003,
+                                        'lr': 0.004,
                                         'batch_size': 16,
                                         'gamma': 0.99,
-                                        'epochs': 100}
+                                        'epochs': 120}
 
     config['3mocniej-cut'] = {'nn_config': {'units_1st_layer': 2,
                                             'units_2nd_layer': 128,
                                             'units_3rd_layer': 64,
                                             'units_latent_layer': 10},
                               'weighted_triplet_loss': True,
-                              'lr': 0.003,
+                              'lr': 0.04,
                               'batch_size': 16,
                               'gamma': 0.99,
-                              'epochs': 100}
+                              'epochs': 90}
 
     config['1czysty-cut'] = {'nn_config': {'units_1st_layer': 2,
                                            'units_2nd_layer': 64,
                                            'units_3rd_layer': 32,
                                            'units_latent_layer': 8},
                              'weighted_triplet_loss': True,
-                             'lr': 0.003,
+                             'lr': 0.004,
                              'batch_size': 16,
                              'gamma': 0.99,
-                             'epochs': 100}
+                             'epochs': 130}
 
     config['2delikatne-cut'] = {'nn_config': {'units_1st_layer': 2,
                                               'units_2nd_layer': 128,
                                               'units_3rd_layer': 64,
                                               'units_latent_layer': 12},
                                 'weighted_triplet_loss': True,
-                                'lr': 0.003,
+                                'lr': 0.04,
                                 'batch_size': 16,
                                 'gamma': 0.99,
-                                'epochs': 100}
+                                'epochs': 90}
     return config
 
+
+def config_tuned_for_dt(config):
+    config['cmc'] = {'nn_config': {'units_1st_layer': 17,
+                                   'units_2nd_layer': 256,
+                                   'units_3rd_layer': 128,
+                                   'units_latent_layer': 8},
+                     'weighted_triplet_loss': True,
+                     'lr': 0.0002,
+                     'batch_size': 16,
+                     'gamma': 0.99,
+                     'epochs': 55}
+
+    config['dermatology'] = {'nn_config': {'units_1st_layer': 97,
+                                           'units_2nd_layer': 512,
+                                           'units_3rd_layer': 256,
+                                           'units_latent_layer': 8},
+                             'weighted_triplet_loss': True,
+                             'lr': 0.0010,
+                             'batch_size': 16,
+                             'gamma': 0.99,
+                             'epochs': 70}
+
+    config['hayes-roth'] = {'nn_config': {'units_1st_layer': 11,
+                                          'units_2nd_layer': 128,
+                                          'units_3rd_layer': 64,
+                                          'units_latent_layer': 16},
+                            'weighted_triplet_loss': True,
+                            'lr': 0.0015,
+                            'batch_size': 16,
+                            'gamma': 0.99,
+                            'epochs': 300}
+
+    config['new_vehicle'] = {'nn_config': {'units_1st_layer': 18,
+                                           'units_2nd_layer': 256,
+                                           'units_3rd_layer': 128,
+                                           'units_latent_layer': 16},
+                             'weighted_triplet_loss': True,
+                             'lr': 0.001,
+                             'batch_size': 16,
+                             'gamma': 0.99,
+                             'epochs': 150}
+
+    config['new_yeast'] = {'nn_config': {'units_1st_layer': 9,
+                                         'units_2nd_layer': 300,
+                                         'units_3rd_layer': 200,
+                                         'units_latent_layer': 12},
+                           'weighted_triplet_loss': True,
+                           'lr': 0.0004,
+                           'batch_size': 32,
+                           'gamma': 0.99,
+                           'epochs': 60}
+
+    config['balance-scale'] = {'nn_config': {'units_1st_layer': 16,
+                                             'units_2nd_layer': 256,
+                                             'units_3rd_layer': 128,
+                                             'units_latent_layer': 10},
+                               'weighted_triplet_loss': True,
+                               'lr': 0.007,
+                               'batch_size': 16,
+                               'gamma': 0.99,
+                               'epochs': 100}
+
+    config['cleveland'] = {'nn_config': {'units_1st_layer': 24,
+                                         'units_2nd_layer': 72,
+                                         'units_3rd_layer': 48,
+                                         'units_latent_layer': 8},
+                           'weighted_triplet_loss': True,
+                           'lr': 0.00002,
+                           'batch_size': 16,
+                           'gamma': 0.99,
+                           'epochs': 120}
+
+    config['cleveland_v2'] = {'nn_config': {'units_1st_layer': 23,
+                                            'units_2nd_layer': 256,
+                                            'units_3rd_layer': 128,
+                                            'units_latent_layer': 16},
+                              'weighted_triplet_loss': True,
+                              'lr': 0.00002,
+                              'batch_size': 16,
+                              'gamma': 0.99,
+                              'epochs': 100}
+
+    config['glass'] = {'nn_config': {'units_1st_layer': 9,
+                                     'units_2nd_layer': 256,
+                                     'units_3rd_layer': 128,
+                                     'units_latent_layer': 12},
+                       'weighted_triplet_loss': True,
+                       'lr': 0.001,
+                       'batch_size': 16,
+                       'gamma': 0.99,
+                       'epochs': 120}
+
+    config['thyroid-newthyroid'] = {'nn_config': {'units_1st_layer': 5,
+                                                  'units_2nd_layer': 64,
+                                                  'units_3rd_layer': 32,
+                                                  'units_latent_layer': 8},
+                                    'weighted_triplet_loss': True,
+                                    'lr': 0.001,
+                                    'batch_size': 16,
+                                    'gamma': 0.99,
+                                    'epochs': 120}
+
+    config['new_ecoli'] = {'nn_config': {'units_1st_layer': 7,
+                                         'units_2nd_layer': 128,
+                                         'units_3rd_layer': 64,
+                                         'units_latent_layer': 12},
+                           'weighted_triplet_loss': True,
+                           'lr': 0.0001,
+                           'batch_size': 16,
+                           'gamma': 0.99,
+                           'epochs': 100}
+
+    config['new_led7digit'] = {'nn_config': {'units_1st_layer': 7,
+                                             'units_2nd_layer': 64,
+                                             'units_3rd_layer': 32,
+                                             'units_latent_layer': 8},
+                               'weighted_triplet_loss': True,
+                               'lr': 0.001,
+                               'batch_size': 16,
+                               'gamma': 0.99,
+                               'epochs': 100}
+
+    config['new_winequality-red'] = {'nn_config': {'units_1st_layer': 11,
+                                                   'units_2nd_layer': 128,
+                                                   'units_3rd_layer': 64,
+                                                   'units_latent_layer': 8},
+                                     'weighted_triplet_loss': True,
+                                     'lr': 0.003,
+                                     'batch_size': 16,
+                                     'gamma': 0.99,
+                                     'epochs': 100}
+
+    config['4delikatne-bezover-cut'] = {'nn_config': {'units_1st_layer': 2,
+                                                      'units_2nd_layer': 128,
+                                                      'units_3rd_layer': 64,
+                                                      'units_latent_layer': 8},
+                                        'weighted_triplet_loss': True,
+                                        'lr': 0.004,
+                                        'batch_size': 16,
+                                        'gamma': 0.99,
+                                        'epochs': 120}
+
+    config['3mocniej-cut'] = {'nn_config': {'units_1st_layer': 2,
+                                            'units_2nd_layer': 128,
+                                            'units_3rd_layer': 64,
+                                            'units_latent_layer': 4},
+                              'weighted_triplet_loss': True,
+                              'lr': 0.04,
+                              'batch_size': 16,
+                              'gamma': 0.99,
+                              'epochs': 90}
+
+    config['1czysty-cut'] = {'nn_config': {'units_1st_layer': 2,
+                                           'units_2nd_layer': 64,
+                                           'units_3rd_layer': 32,
+                                           'units_latent_layer': 4},
+                             'weighted_triplet_loss': True,
+                             'lr': 0.004,
+                             'batch_size': 16,
+                             'gamma': 0.99,
+                             'epochs': 130}
+
+    config['2delikatne-cut'] = {'nn_config': {'units_1st_layer': 2,
+                                              'units_2nd_layer': 128,
+                                              'units_3rd_layer': 64,
+                                              'units_latent_layer': 12},
+                                'weighted_triplet_loss': True,
+                                'lr': 0.04,
+                                'batch_size': 16,
+                                'gamma': 0.99,
+                                'epochs': 90}
+    return config
 
 def one_hot_encode_all(datasets):
     ds_names = list(dt_name_to_cols_to_encode.keys())
