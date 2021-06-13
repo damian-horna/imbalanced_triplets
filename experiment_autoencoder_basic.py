@@ -2,6 +2,7 @@ from collections import Counter
 import numpy as np
 import torch.nn as nn
 import torch
+import torch.optim as optim
 from sklearn.decomposition import PCA
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import TensorDataset, DataLoader, Dataset
@@ -414,21 +415,29 @@ class SafenessLoss(nn.Module):
             emb_same_class = [emb[i,:] for emb, clazz in zip(embeddings[1:], target[1:]) if clazz[i] == anchor_label[i]]
             emb_different_class = [emb[i,:] for emb, clazz in zip(embeddings[1:], target[1:]) if clazz[i] != anchor_label[i]]
 
+            # Distances to neighbors from the same class
             same_class_dists = [(anchor[i, :] - emb).pow(2).sum() for emb in emb_same_class]
+
+            # Distances to neighbors from different class
             different_class_dists = [(anchor[i, :] - emb).pow(2).sum() for emb in emb_different_class]
 
             alpha = max(same_class_dists) + 1 if same_class_dists else 1.0 # Set alpha to some predefined margin value if there are no neighbors from the same class
 
+            # Sum of distances to neighbors from same class
             same_class_dist_sum = torch.stack(same_class_dists).sum() if same_class_dists else 0
 
             diff_class_mins = [dist - alpha for dist in different_class_dists if dist-alpha < 0]
+
+            # Sum of mins to neighbors from different class
             different_class_dist_min_sum = torch.stack(diff_class_mins).sum() if diff_class_mins else 0
 
             if torch.is_tensor(same_class_dist_sum - different_class_dist_min_sum):
-                losses.append((same_class_dist_sum/(len(same_class_dists) + 1e-6) - different_class_dist_min_sum / (len(different_class_dists) + 1e-6)) * (1 - len(emb_same_class) / len(embeddings[1:])))
+                # We calculate the error as the difference of sums.
+                losses.append(same_class_dist_sum - different_class_dist_min_sum )
+
+                # Safeness coefficient associated with the examples
                 safety_coefs.append(len(emb_same_class) / len(embeddings[1:]))
-        # print("Losses:")
-        # print(losses)
+
         result = torch.stack(losses).mean()
         return result, np.mean(safety_coefs)
 
@@ -488,15 +497,10 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca, autoenc_
 
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    dataset1 = TensorDataset(torch.Tensor(X_train), torch.Tensor(y_train))
-    dataset1.train_data = torch.Tensor(X_train)
-    dataset1.train_labels = torch.Tensor(y_train)
-    dataset1.train = True
-
-    dataset2 = TensorDataset(torch.Tensor(X_test), torch.Tensor(y_test))
-    dataset2.test_data = torch.Tensor(X_test)
-    dataset2.test_labels = torch.Tensor(y_test)
-    dataset2.train = False
+    dataset1, dataset2, neighbors_test_loader, neighbors_train_loader = init_loaders(X_train, X_test, y_train, y_test,
+                                                                                     X_train, X_test,
+                                                                                     batch_size, test_batch_size,
+                                                                                     use_cuda, k_neigh)
 
     embedding_net = EmbeddingNet(nn_config)
     # autoencoder training here
@@ -504,16 +508,59 @@ def train_triplets(X_train, y_train, X_test, y_test, weights, cfg, pca, autoenc_
     autoencoder.to(device)
     autoencoder_trained = train_autoencoder(autoencoder, X_train, y_train, X_test, y_test, autoenc_cfg)
 
-    model = autoencoder_trained.encoder
+    model = SafenessNet(autoencoder_trained.encoder).to(device)
+    # model = embedding_net.to(device)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
 
+    scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
+
+    # Calculate initial embeddings:
+    # embeddings_train, embeddings_test= train_and_test_embeddings(dataset1, dataset2, device, model)
+
+    # Plot latent representation of autoencoder
     embeddings_train, embeddings_test = train_and_test_embeddings(dataset1, dataset2, device, model)
-
     pca = PCA(n_components=2)
     plot_embeddings(pca.fit_transform(embeddings_train), y_train)
     plt.title(f"Autoencoder - latent representation")
     plt.show()
 
+    test_losses = []
+    train_losses = []
+    safety_coefs = []
+    for epoch in range(1, epochs + 1):
+        # print(f"Epoch: {epoch}")
+        train_loss, safety_coef = train_safenessnet(model, device, neighbors_train_loader, optimizer, epoch, weights,
+                                                    nn_config, log_interval, pca, X_train)
+        safety_coefs.append(safety_coef)
+        train_losses.append(train_loss)
+        test_losses.append(test_safenessnet(model, device, neighbors_test_loader, weights, nn_config))
+        scheduler.step()
+
+        embeddings_train, embeddings_test = train_and_test_embeddings(dataset1, dataset2, device, model)
+        dataset1, dataset2, neighbors_test_loader, neighbors_train_loader = init_loaders(X_train, X_test, y_train,
+                                                                                         y_test, embeddings_train,
+                                                                                         embeddings_test,
+                                                                                         batch_size, test_batch_size,
+                                                                                         use_cuda, k_neigh)
+        if epoch % 10 == 0:
+            # PCA embeddings_train
+            pca = PCA(n_components=2)
+            plot_embeddings(pca.fit_transform(embeddings_train), y_train)
+            plt.title(f"Embeddings_train after {epoch} epochs")
+            plt.show()
+
+    if save_model:
+        torch.save(model.state_dict(), "mnist_cnn_triplet.pt")
+
     embeddings_train, embeddings_test = train_and_test_embeddings(dataset1, dataset2, device, model)
+    plt.plot(test_losses, label="test losses")
+    plt.plot(train_losses, label="train losses")
+    plt.legend()
+    plt.show()
+
+    plt.plot(safety_coefs, label="mean safety coefficient")
+    plt.legend()
+    plt.show()
 
     return embeddings_train, embeddings_test
 
@@ -600,3 +647,90 @@ def train_and_test_embeddings(dataset1, dataset2, device, model):
     embeddings_train, _ = calc_embeddings(model, device, train_loader)
     embeddings_test, _ = calc_embeddings(model, device, test_loader)
     return embeddings_train, embeddings_test
+
+def init_loaders(X_train, X_test, y_train, y_test, train_repr, test_repr, batch_size, test_batch_size, use_cuda, k_neigh):
+    train_kwargs = {'batch_size': batch_size}
+    test_kwargs = {'batch_size': test_batch_size}
+    if use_cuda:
+        cuda_kwargs = {'num_workers': 1,
+                       'pin_memory': True,
+                       'shuffle': True}
+        train_kwargs.update(cuda_kwargs)
+        test_kwargs.update(cuda_kwargs)
+
+    dataset1 = TensorDataset(torch.Tensor(X_train), torch.Tensor(y_train))
+    dataset1.train_data = torch.Tensor(X_train)
+    dataset1.train_labels = torch.Tensor(y_train)
+    dataset1.train = True
+
+    dataset2 = TensorDataset(torch.Tensor(X_test), torch.Tensor(y_test))
+    dataset2.test_data = torch.Tensor(X_test)
+    dataset2.test_labels = torch.Tensor(y_test)
+    dataset2.train = False
+
+    neighbors_train_dataset = NeighborsDataset(dataset1, train_repr, n_neighbors=k_neigh)
+    neighbors_test_dataset = NeighborsDataset(dataset2, test_repr, n_neighbors=k_neigh)
+
+    neighbors_train_loader = torch.utils.data.DataLoader(neighbors_train_dataset, **train_kwargs)
+    neighbors_test_loader = torch.utils.data.DataLoader(neighbors_test_dataset, **test_kwargs)
+
+    return dataset1, dataset2, neighbors_test_loader, neighbors_train_loader
+
+
+class NeighborsDataset(Dataset):
+    def __init__(self, ds, representation, n_neighbors=21):
+        np.random.seed(0)
+        self.ds = ds
+        self.train = self.ds.train
+        self.n_neighbors = n_neighbors
+        self.neigh = NearestNeighbors(n_neighbors=n_neighbors)
+        self.representation = representation
+
+        if self.train:
+            self.train_labels = self.ds.train_labels
+            self.train_data = self.ds.train_data
+        else:
+            self.test_labels = self.ds.test_labels
+            self.test_data = self.ds.test_data
+        self.neigh.fit(self.representation)
+
+    def __getitem__(self, index):
+        anchor_repr = self.representation[index, :]
+        if self.train:
+            anchor = self.train_data[index]
+            anchor_label = self.train_labels[index]
+            neigh_indices = self.neigh.kneighbors([anchor_repr], return_distance=False)
+            neigh_indices = [ind for ind in neigh_indices[0] if ind != index] # without self
+            neigh_indices = neigh_indices[: self.n_neighbors-1]
+            neighbors = self.train_data[neigh_indices, :]
+            neighbors_labels = self.train_labels[neigh_indices]
+        else:
+            anchor = self.test_data[index]
+            anchor_label = self.test_labels[index]
+            neigh_indices = self.neigh.kneighbors([anchor_repr], return_distance=False)
+            neigh_indices = [ind for ind in neigh_indices[0] if ind != index] # without self
+            neigh_indices = neigh_indices[: self.n_neighbors-1]
+            neighbors = self.test_data[neigh_indices]
+            neighbors_labels = self.test_labels[neigh_indices]
+        return (anchor, *neighbors), [anchor_label, *neighbors_labels]
+
+    def __len__(self):
+        return len(self.ds)
+
+
+# ---------------------------------------------- SAFENESS
+class SafenessNet(nn.Module):
+    def __init__(self, embedding_net):
+        super(SafenessNet, self).__init__()
+        self.embedding_net = embedding_net
+
+    def forward(self, anchor, *neighbors):
+        anchor_emb = self.embedding_net(anchor)
+        neighbor_embeddings = []
+        for n in neighbors:
+            n_emb = self.embedding_net(n)
+            neighbor_embeddings.append(n_emb)
+        return (anchor_emb, *neighbor_embeddings)
+
+    def embed(self, x):
+        return self.embedding_net(x)
