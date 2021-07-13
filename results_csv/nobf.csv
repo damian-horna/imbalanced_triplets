@@ -1,0 +1,18 @@
+dataset,Baseline,New Rep. (Triplets),New Rep. (Proposed method)
+cmc,0.423,0.454,0.436
+dermatology,0.937,0.97,0.953
+hayes-roth,0.672,0.886,0.891
+vehicle,0.912,0.989,0.986
+yeast,0.487,0.497,0.497
+art1,0.946,0.974,0.955
+art2,0.7,0.751,0.719
+art3,0.509,0.572,0.524
+art4,0.768,0.817,0.786
+balance-scale,0.561,0.954,0.942
+cleveland,0.297,0.315,0.335
+cleveland_v2,0.327,0.306,0.342
+glass,0.659,0.69,0.699
+ecoli,0.793,0.814,0.802
+led7digit,0.734,0.748,0.744
+winequality-red,0.535,0.553,0.537
+thyroid,0.93,0.957,0.953
